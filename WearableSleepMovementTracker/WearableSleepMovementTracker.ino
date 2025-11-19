@@ -2,6 +2,8 @@
 
 #define DEBUG_PRINT_ACCELS;
 
+
+const float ANALOG_SCALE_FACTOR = 12;
 // Analog accelerometer pins
 const int ANALOG_A_X_PIN = A0;
 const int ANALOG_A_Y_PIN = A1;
@@ -31,10 +33,6 @@ const float LSB_SENS_TABLE[4] = {16384, 8192, 4096, 2048};
 const int ACCEL_SCALE = 3;
 const float LSB_SENS = LSB_SENS_TABLE[ACCEL_SCALE];
 
-// Offsets should be found and calibrated manually
-const float MPU_A_X_OFFSET = 0;
-const float MPU_A_Y_OFFSET = 0;
-const float MPU_A_Z_OFFSET = 0;
 float
   mpu_a_x,
   mpu_a_y,
@@ -44,9 +42,9 @@ float
 
 // Movement detection
 const int SAMPLE_INTERVAL = 50;  // slower sampling
-const int WINDOW_SIZE = 60;       // larger buffer for smoothing
-const float MOVEMENT_THRESHOLD = 0.45;  // higher = less sensitive
-const float PERIODIC_SIMILARITY = 0.8;
+const int WINDOW_SIZE = 100;       // larger buffer for smoothing
+const float MOVEMENT_THRESHOLD = 2;  // higher = less sensitive
+const float PERIODIC_SIMILARITY = 0.85;
 unsigned long mpu_last_detection = 0; // millis() returns unsigned long, overflows at about 50 days
 unsigned long analog_last_detection = 0; 
 
@@ -88,7 +86,7 @@ void setup() {
 void loop() {
   // Analog sensor
   record_analog_accel();
-  analog_a_mag = sqrt(analog_a_x * analog_a_x + analog_a_y * analog_a_y + analog_a_z * analog_a_z);
+  analog_a_mag = sqrt(analog_a_x * analog_a_x + analog_a_y * analog_a_y + analog_a_z * analog_a_z) * ANALOG_SCALE_FACTOR;
 
   // MPU
   record_mpu_accel();
@@ -103,14 +101,14 @@ void loop() {
   mpu_accel_buffer[accel_buffer_index] = mpu_a_mag;
   accel_buffer_index = (accel_buffer_index + 1) % WINDOW_SIZE;
 
-  if (detect_periodic_movement(analog_accel_buffer)) {
+  if (detect_periodic_movement(analog_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - analog_last_detection > 2000) {
       Serial.println("Periodic movement detected on analog (arm)!");
       analog_last_detection = millis();
     }
   }
 
-  if (detect_periodic_movement(mpu_accel_buffer)) {
+  if (detect_periodic_movement(mpu_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - mpu_last_detection > 2000) {
       Serial.println("Periodic movement detected on MPU (leg)!");
       mpu_last_detection = millis();
@@ -163,9 +161,9 @@ void record_mpu_accel() {
   int16_t a_z_raw = (buffer[4] << 8) | buffer[5];
   // Combine high byte and low byte into 16-bit accel value, then divide by LSB sensitivity to get accel in g-forces
   // Also factor in offsets
-  mpu_a_x = a_x_raw / LSB_SENS + MPU_A_X_OFFSET;
-  mpu_a_y = a_y_raw / LSB_SENS + MPU_A_Y_OFFSET;
-  mpu_a_z = a_z_raw / LSB_SENS + MPU_A_Z_OFFSET;
+  mpu_a_x = a_x_raw / LSB_SENS;
+  mpu_a_y = a_y_raw / LSB_SENS;
+  mpu_a_z = a_z_raw / LSB_SENS;
 }
 
 void record_analog_accel() {
@@ -174,14 +172,14 @@ void record_analog_accel() {
   analog_a_z = (analogRead(ANALOG_A_Z_PIN) - 512.0) / 100.0;
 }
 
-bool detect_periodic_movement(float *buffer) {
+bool detect_periodic_movement(float *buffer, int start_i) {
   // Smooth signal
   float avg = smooth(buffer, WINDOW_SIZE);
 
   // Compute standard deviation
   float var = 0;
   for (int i = 0; i < WINDOW_SIZE; i++) {
-    float d = buffer[i] - avg;
+    float d = buffer[(i + start_i) % WINDOW_SIZE] - avg;
     var += d * d;
   }
   var /= WINDOW_SIZE;
@@ -193,9 +191,11 @@ bool detect_periodic_movement(float *buffer) {
   int half = WINDOW_SIZE / 2;
   float dot = 0, n1 = 0, n2 = 0;
   for (int i = 0; i < half; i++) {
-    dot += buffer[i] * buffer[i + half];
-    n1 += buffer[i] * buffer[i];
-    n2 += buffer[i + half] * buffer[i + half];
+    int adjusted_i = (i + start_i) % WINDOW_SIZE;
+    int adjusted_half_i = (i + half + start_i) % WINDOW_SIZE;
+    dot += buffer[adjusted_i] * buffer[adjusted_half_i];
+    n1 += buffer[adjusted_i] * buffer[adjusted_i];
+    n2 += buffer[adjusted_half_i] * buffer[adjusted_half_i];
   }
   float sim = dot / (sqrt(n1 * n2) + 1e-6);
   return (sim > PERIODIC_SIMILARITY);
@@ -204,29 +204,29 @@ bool detect_periodic_movement(float *buffer) {
 
 #ifdef DEBUG_PRINT_ACCELS
   void print_accels() {
-    Serial.print("analog_a_x:");
-    Serial.print(analog_a_x);
-    Serial.print(' ');
-    Serial.print("analog_a_y:");
-    Serial.print(analog_a_y);
-    Serial.print(' ');
-    Serial.print("analog_a_z:");
-    Serial.print(analog_a_z);
-    Serial.print(' ');
+    // Serial.print("analog_a_x:");
+    // Serial.print(analog_a_x);
+    // Serial.print(' ');
+    // Serial.print("analog_a_y:");
+    // Serial.print(analog_a_y);
+    // Serial.print(' ');
+    // Serial.print("analog_a_z:");
+    // Serial.print(analog_a_z);
+    // Serial.print(' ');
     Serial.print("analog_a_mag:");
-    Serial.print(analog_a_mag);
-    Serial.print(' ');
-    Serial.print("mpu_a_x:");
-    Serial.print(mpu_a_x);
-    Serial.print(' ');
-    Serial.print("mpu_a_y:");
-    Serial.print(mpu_a_y);
-    Serial.print(' ');
-    Serial.print("mpu_a_z:");
-    Serial.print(mpu_a_z);
+    Serial.print(analog_a_mag - 4.23);
+    // Serial.print(' ');
+    // Serial.print("mpu_a_x:");
+    // Serial.print(mpu_a_x);
+    // Serial.print(' ');
+    // Serial.print("mpu_a_y:");
+    // Serial.print(mpu_a_y);
+    // Serial.print(' ');
+    // Serial.print("mpu_a_z:");
+    // Serial.print(mpu_a_z);
     Serial.print(' ');
     Serial.print("mpu_a_mag:");
-    Serial.print(mpu_a_mag);
+    Serial.print(mpu_a_mag - 8);
     Serial.println();
   }
 #endif
