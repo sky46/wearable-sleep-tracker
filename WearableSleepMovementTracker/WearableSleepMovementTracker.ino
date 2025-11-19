@@ -43,8 +43,8 @@ float
 ;
 
 // Movement detection
-const int SAMPLE_INTERVAL = 150;  // slower sampling
-const int WINDOW_SIZE = 20;       // larger buffer for smoothing
+const int SAMPLE_INTERVAL = 50;  // slower sampling
+const int WINDOW_SIZE = 60;       // larger buffer for smoothing
 const float MOVEMENT_THRESHOLD = 0.45;  // higher = less sensitive
 const float PERIODIC_SIMILARITY = 0.8;
 unsigned long mpu_last_detection = 0; // millis() returns unsigned long, overflows at about 50 days
