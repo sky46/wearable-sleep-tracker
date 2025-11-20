@@ -1,8 +1,8 @@
 void setup() {
-  Serial.begin(9600);
-  Serial2.begin(9600);
+  Serial.begin(38400);
+  Serial2.begin(38400);
   while(!Serial);
-  Serial2.println("AT+BAUD4");
+  // Serial2.println("AT+BAUD6");
 }
 
 void loop() {

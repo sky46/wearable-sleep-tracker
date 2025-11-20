@@ -1,13 +1,13 @@
 #include <Wire.h>
 
-#define DEBUG_PRINT_ACCELS;
+#define DEBUG_PRINT_ACCELS false
 
-
-const float ANALOG_SCALE_FACTOR = 12;
+// Scale factor for ACCEL_SCALE 3, LSB_SENS 2048
+#define ANALOG_SCALE_FACTOR 12.0
 // Analog accelerometer pins
-const int ANALOG_A_X_PIN = A0;
-const int ANALOG_A_Y_PIN = A1;
-const int ANALOG_A_Z_PIN = A2;
+#define ANALOG_A_X_PIN A13
+#define ANALOG_A_Y_PIN A14
+#define ANALOG_A_Z_PIN A15
 
 float
   analog_a_x,
@@ -20,17 +20,17 @@ float
 // Based on ElegooTutorial by Ricardo Moreno Jr.
 // https://github.com/rmorenojr/ElegooTutorial/blob/master/Lesson%2016%20-%20GY-521%20Module/MPU-6050_expanded/MPU-6050_expanded.ino
 
-const int MPU_ADDR = 0x68; // I2C address from datasheet (AD0 should be logic low, wire to GND)
+#define MPU_ADDR 0x68 // I2C address from datasheet (AD0 should be logic low, wire to GND)
 // x high 3B, x low 3C, y high 3D, y low 3E, z high 3F, z low 40
-const int ACCEL_REG = 0x3B;
-const int ACCEL_SCALE_REG = 0x1C;
-const int POWER_REG = 0x6B;
+#define ACCEL_REG 0x3B
+#define ACCEL_SCALE_REG 0x1C
+#define POWER_REG 0x6B
 
 // ACCEL_SCALE = 0      1    2    3
 // Range is   +- 2g     4g   8g   16g
 // sens (LSB/g)= 16384  8192 4096 2048
-const float LSB_SENS_TABLE[4] = {16384, 8192, 4096, 2048};
-const int ACCEL_SCALE = 3;
+static const int LSB_SENS_TABLE[4] {16384, 8192, 4096, 2048};
+#define ACCEL_SCALE 3
 const float LSB_SENS = LSB_SENS_TABLE[ACCEL_SCALE];
 
 float
@@ -41,10 +41,11 @@ float
 ;
 
 // Movement detection
-const int SAMPLE_INTERVAL = 50;  // slower sampling
-const int WINDOW_SIZE = 100;       // larger buffer for smoothing
-const float MOVEMENT_THRESHOLD = 2;  // higher = less sensitive
-const float PERIODIC_SIMILARITY = 0.85;
+// Buffer length is WINDOW_SIZE * SAMPLE_INTERVAL ms
+#define SAMPLE_INTERVAL 50
+#define WINDOW_SIZE 100
+#define MOVEMENT_THRESHOLD 1.5 // higher = less sensitive
+#define PERIODIC_SIMILARITY 0.92
 unsigned long mpu_last_detection = 0; // millis() returns unsigned long, overflows at about 50 days
 unsigned long analog_last_detection = 0; 
 
@@ -77,10 +78,10 @@ float smooth(float *buffer, int size) {
 
 void setup() {
   Serial.begin(38400);
+  Serial1.begin(38400);
   Wire.begin();
   setup_mpu();
-
-  Serial.println("Starting stable motion detection...");
+  while (!Serial);
 }
 
 void loop() {
@@ -92,7 +93,7 @@ void loop() {
   record_mpu_accel();
   mpu_a_mag = sqrt(mpu_a_x * mpu_a_x + mpu_a_y * mpu_a_y + mpu_a_z * mpu_a_z);
 
-  #ifdef DEBUG_PRINT_ACCELS
+  #if (DEBUG_PRINT_ACCELS)
     print_accels();
   #endif
 
@@ -103,19 +104,21 @@ void loop() {
 
   if (detect_periodic_movement(analog_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - analog_last_detection > 2000) {
-      Serial.println("Periodic movement detected on analog (arm)!");
+      Serial.println("ARM");
+      Serial1.println("ARM");
       analog_last_detection = millis();
     }
   }
 
   if (detect_periodic_movement(mpu_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - mpu_last_detection > 2000) {
-      Serial.println("Periodic movement detected on MPU (leg)!");
+      Serial.println("LEG");
+      Serial1.println("LEG");
       mpu_last_detection = millis();
     }
   }
 
-  delay(SAMPLE_INTERVAL);
+  delay(SAMPLE_INTERVAL); 
 }
 
 void setup_mpu() {
@@ -185,8 +188,11 @@ bool detect_periodic_movement(float *buffer, int start_i) {
   var /= WINDOW_SIZE;
   float stdDev = sqrt(var);
 
-  if (stdDev < MOVEMENT_THRESHOLD) return false;
+  if (stdDev < MOVEMENT_THRESHOLD){
+    return false;
+  }
 
+  Serial.println("Above movement threshold");
   // Compare halves for periodicity
   int half = WINDOW_SIZE / 2;
   float dot = 0, n1 = 0, n2 = 0;
@@ -202,31 +208,31 @@ bool detect_periodic_movement(float *buffer, int start_i) {
 }
 // AID Statement: Artificial Intelligence Tool: ChatGPT 5, used November 2025; Writing—Review & Editing: Used for writing code for the detection of periodic movement.
 
-#ifdef DEBUG_PRINT_ACCELS
+#if (DEBUG_PRINT_ACCELS)
   void print_accels() {
-    // Serial.print("analog_a_x:");
-    // Serial.print(analog_a_x);
-    // Serial.print(' ');
-    // Serial.print("analog_a_y:");
-    // Serial.print(analog_a_y);
-    // Serial.print(' ');
-    // Serial.print("analog_a_z:");
-    // Serial.print(analog_a_z);
-    // Serial.print(' ');
+    Serial.print("analog_a_x:");
+    Serial.print(analog_a_x);
+    Serial.print(' ');
+    Serial.print("analog_a_y:");
+    Serial.print(analog_a_y);
+    Serial.print(' ');
+    Serial.print("analog_a_z:");
+    Serial.print(analog_a_z);
+    Serial.print(' ');
     Serial.print("analog_a_mag:");
-    Serial.print(analog_a_mag - 4.23);
-    // Serial.print(' ');
-    // Serial.print("mpu_a_x:");
-    // Serial.print(mpu_a_x);
-    // Serial.print(' ');
-    // Serial.print("mpu_a_y:");
-    // Serial.print(mpu_a_y);
-    // Serial.print(' ');
-    // Serial.print("mpu_a_z:");
-    // Serial.print(mpu_a_z);
+    Serial.print(analog_a_mag);
+    Serial.print(' ');
+    Serial.print("mpu_a_x:");
+    Serial.print(mpu_a_x);
+    Serial.print(' ');
+    Serial.print("mpu_a_y:");
+    Serial.print(mpu_a_y);
+    Serial.print(' ');
+    Serial.print("mpu_a_z:");
+    Serial.print(mpu_a_z);
     Serial.print(' ');
     Serial.print("mpu_a_mag:");
-    Serial.print(mpu_a_mag - 8);
+    Serial.print(mpu_a_mag);
     Serial.println();
   }
 #endif
