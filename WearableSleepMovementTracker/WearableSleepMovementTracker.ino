@@ -104,16 +104,16 @@ void loop() {
 
   if (detect_periodic_movement(analog_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - analog_last_detection > 2000) {
-      Serial.println("ARM");
-      Serial1.println("ARM");
+      Serial.println("LEG");
+      Serial1.println("LEG");
       analog_last_detection = millis();
     }
   }
 
   if (detect_periodic_movement(mpu_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - mpu_last_detection > 2000) {
-      Serial.println("LEG");
-      Serial1.println("LEG");
+      Serial.println("ARM");
+      Serial1.println("ARM");
       mpu_last_detection = millis();
     }
   }
