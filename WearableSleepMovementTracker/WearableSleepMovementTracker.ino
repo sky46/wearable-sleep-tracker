@@ -64,7 +64,7 @@ void setup_mpu();
 void record_mpu_accel();
 void record_analog_accel();
 bool detect_periodic_movement(float *buffer);
-#ifdef DEBUG_PRINT_ACCELS
+#if (DEBUG_PRINT_ACCELS)
   void print_accels();
 #endif
 
