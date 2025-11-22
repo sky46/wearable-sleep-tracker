@@ -1,6 +1,6 @@
 #include <Wire.h>
 
-#define DEBUG_PRINT_ACCELS false
+#define NDEBUG
 
 // Scale factor for ACCEL_SCALE 3, LSB_SENS 2048
 #define ANALOG_SCALE_FACTOR 12.0
@@ -93,7 +93,7 @@ void loop() {
   record_mpu_accel();
   mpu_a_mag = sqrt(mpu_a_x * mpu_a_x + mpu_a_y * mpu_a_y + mpu_a_z * mpu_a_z);
 
-  #if (DEBUG_PRINT_ACCELS)
+  #ifndef NDEBUG
     print_accels();
   #endif
 
@@ -104,7 +104,9 @@ void loop() {
 
   if (detect_periodic_movement(analog_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - analog_last_detection > 2000) {
-      Serial.println("LEG");
+      #ifndef NDEBUG
+        Serial.println("LEG");
+      #endif
       Serial1.println("LEG");
       analog_last_detection = millis();
     }
@@ -112,7 +114,9 @@ void loop() {
 
   if (detect_periodic_movement(mpu_accel_buffer, accel_buffer_index + 1)) {
     if (millis() - mpu_last_detection > 2000) {
-      Serial.println("ARM");
+      #ifndef NDEBUG
+        Serial.println("ARM");
+      #endif
       Serial1.println("ARM");
       mpu_last_detection = millis();
     }
@@ -208,7 +212,7 @@ bool detect_periodic_movement(float *buffer, int start_i) {
 }
 // AID Statement: Artificial Intelligence Tool: ChatGPT 5, used November 2025; Writing—Review & Editing: Used for writing code for the detection of periodic movement.
 
-#if (DEBUG_PRINT_ACCELS)
+#ifndef NDEBUG
   void print_accels() {
     Serial.print("analog_a_x:");
     Serial.print(analog_a_x);
